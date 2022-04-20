@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Mar 28 01:04:50 2022
+@author: adeep
+"""
+import cv2 as cv
+import tempfile
 import numpy as np
 import pandas as pd
 import streamlit as st 
@@ -17,60 +24,37 @@ nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 from nltk.tokenize import sent_tokenize
 import re
+from utils import welcome, get_large_audio_transcription
 
 from PIL import Image
 
-def welcome():
-    return "Welcome All"
 
-def get_large_audio_transcription(path):  
-    r = sr.Recognizer()
-    sound = AudioSegment.from_wav(path)  
-    chunks = split_on_silence(sound,
-        min_silence_len = 500,
-        silence_thresh = sound.dBFS-14,
-        keep_silence=500,
-    )
-    whole_text = ""
-    for i, audio_chunk in enumerate(chunks, start=1):
-        chunk_filename = os.path.join(f"chunk{i}.wav")
-        audio_chunk.export(chunk_filename, format="wav")
-        with sr.AudioFile(chunk_filename) as source:
-            audio_listened = r.record(source)
-            try:
-                text = r.recognize_google(audio_listened)
-            except sr.UnknownValueError as e:
-                print("Error:", str(e))
-            else:
-                text = f"{text.capitalize()}. "
-                whole_text += text
-    return whole_text
+def main():
+ 
     
-st.title("Summarize Text")
-video = st.file_uploader("Choose a file", type=['mp4'])
-#bytes=video.read()
-#v = VideoFileClip(bytes)
-#st.write("completed")
-#video.export("video1.mp4", format="mp4")
-button = st.button("Summarize")
+    st.title("Summarize Text")
+    video = st.file_uploader("Choose a file", type=['mp4'])
+    button = st.button("Summarize")
+    
+    max = st.sidebar.slider('Select max', 50, 500, step=10, value=150)
+    min = st.sidebar.slider('Select min', 10, 450, step=10, value=50)
+    with st.spinner("Generating Summary.."):
+        if button and video:
+            tfile = tempfile.NamedTemporaryFile(delete=False)
+            tfile.write(video.read())
+            #st.write(tfile.name)
+            v = VideoFileClip(tfile.name)
+            v.audio.write_audiofile("movie.wav")
+            #st.video(video, format="video/mp4", start_time=0)
+            st.audio("movie.wav")
+            whole_text=get_large_audio_transcription("movie.wav")
+            #st.write(whole_text)
+            summarizer = pipeline("summarization")
+            summarized = summarizer(whole_text, min_length=75, max_length=300)
+            summ=summarized[0]['summary_text']
+            st.write(summ)
+            
 
-max = st.sidebar.slider('Select max', 50, 500, step=10, value=150)
-min = st.sidebar.slider('Select min', 10, 450, step=10, value=50)
-with st.spinner("Generating Summary.."):
-    if button and video:
-        #st.write("step1")
-        #video1=open(bytes_data, 'rb').read()
-        #st.write("step2")
-        v = VideoFileClip("video.mp4")
-        #st.write("step3")
-        v.audio.write_audiofile("movie.wav")
-        #st.video(video, format="video/mp4", start_time=0)
-        st.audio("movie.wav")
-        whole_text=get_large_audio_transcription("movie.wav")
-        st.write(whole_text)
-        #summarizer = pipeline("summarization")
-        #summarized = summarizer(whole_text, min_length=75, max_length=300)
-        #summ=summarized[0]['summary_text']
-        #st.write(summ)
-        
+if __name__ == '__main__':
     
+    main()
